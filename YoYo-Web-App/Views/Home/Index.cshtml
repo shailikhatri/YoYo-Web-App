@@ -65,8 +65,8 @@
                             <div class="col-5 text-right">
                                 <button id="btnWarn_@item.Id" name="btnWarn_@item.Id" type="button" onclick="WarnAthlete(@item.Id)" class="btn btnWarning" style="display:none">Warn</button>
                                 <span id="lblWarned_@item.Id" class="btn btnWarned" style="display:none">Warned</span>
-
-                                <button id="btnStop_@item.Id" value="@item.Id" name="btnStop_@item.Id" type="button" class="btn btnStop" onclick="StopAthlete(@item.Id)" style="display:none">Stop</button>
+                               
+                                <button id="btnStop_@item.Id" value=@(item.Id+"_"+item.IsStopped) name="btnStop_@item.Id" type="button" class="btn btnStop" onclick="StopAthlete(@item.Id)" style="display:none">Stop</button>
                                 @Html.DropDownList("ddResult_" + item.Id, new SelectList(Model.possibleResults), new { @style = "display:none;border:none;", @onchange = "saveResult(this.value," + item.Id + ")" })
                             </div>
                         </div>
@@ -175,7 +175,12 @@
                         $("#hdnLevelNo").val('16');
 
                         $('button[name*="btnStop"]').each(function () {
-                            StopAthlete($(this).val());
+                           
+                            var vals = $(this).val().split('_');
+                            if (vals[1] != "True")
+                            {
+                                StopAthlete(vals[0]);
+                            }
                         });
 
                     }
@@ -233,6 +238,7 @@
 
                      $("#ddResult_" + Id).css('display', 'inline-block');
                      $("#ddResult_" + Id).val($("#hdnSpeedLevel").val() + ' - ' + $("#hdnShuttleNo").val());
+                     $("#btnStop_" + Id).val(Id + '_' + "True");
                  },
                  error: function (result) {
                      alert('Athlete not stopped.');
