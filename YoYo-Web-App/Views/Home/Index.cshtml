@@ -1,0 +1,256 @@
+﻿@{
+    ViewData["Title"] = "YoYo Test";
+    @model YoYoResult
+}
+
+<div class="text-center">
+
+    <div class="row">
+        <div class="col-2 mt-3 text-left">
+            <i class="fa fa-angle-left" style="font-size:32px;"></i>
+        </div>
+        <div class="col-8">
+            <h3 class="mt-3">YoYo Test</h3>
+            <button type="button" id="btnStart" data-toggle="Start Test" class="btn btn-light btn-circle btn-xl"><i class="fa fa-caret-right" style="font-size:52px;color:darkgreen"></i></button>
+
+            <div class="progress mx-auto" style="display:none;">
+                <span class="progress-left">
+                    <span class="progress-bar border-primary"></span>
+                </span>
+                <span class="progress-right">
+                    <span class="progress-bar border-primary"></span>
+                </span>
+                <div class="progress-value w-100 h-100 rounded-circle d-flex align-items-center justify-content-center">
+                    <div id="divSummary" class="font-weight-bold">
+                        <span style="font:1 rem;color:orange">
+                            Level <label id="lblLevelNo"></label>
+                            <br />
+                            Shuttle <label id="lblShuttle"></label>
+                        </span>
+                        <br />
+                        <span style="font:0.5 rem;">
+                            <label id="lblSpeed"></label> km/hr
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <div id="dvStatistics">
+                <div class="text-center row">
+                    <div class="col-4 border-right">
+                        NEXT SHUTTLE
+                        <br /><div id="timeLeft">00:00 s</div>
+                    </div>
+                    <div class="col-4 border-right">
+                        TOTAL TIME<br /><div id="dvTimer">0:00 min</div>
+                    </div>
+                    <div class="col-4">TOTAL DISTANCE<br /><div id="dvDistance">0 m</div></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-2"></div>
+    </div>
+    <div class="mt-3 row">
+        <div class="col-12">
+            <ul class="list-group list-group-flush text-left">
+
+                <li class="list-group-item">  <span class="font-weight-bold " style="color: darkgreen">Track</span></li>
+                @foreach (var item in Model.athleteFitnessResults)
+                {
+                    <li class="list-group-item">
+                        <div class="row">
+                            <div class="col-7">
+                                @(item.Id). @item.Name
+                            </div>
+                            <div class="col-5 text-right">
+                                <button id="btnWarn_@item.Id" name="btnWarn_@item.Id" type="button" onclick="WarnAthlete(@item.Id)" class="btn btnWarning" style="display:none">Warn</button>
+                                <span id="lblWarned_@item.Id" class="btn btnWarned" style="display:none">Warned</span>
+
+                                <button id="btnStop_@item.Id" value="@item.Id" name="btnStop_@item.Id" type="button" class="btn btnStop" onclick="StopAthlete(@item.Id)" style="display:none">Stop</button>
+                                @Html.DropDownList("ddResult_" + item.Id, new SelectList(Model.possibleResults), new { @style = "display:none;border:none;", @onchange = "saveResult(this.value," + item.Id + ")" })
+                            </div>
+                        </div>
+                    </li>
+                }
+            </ul>
+
+            <input type="hidden" id="hdnSpeedLevel" />
+            <input type="hidden" id="hdnShuttleNo" />
+            <input type="hidden" id="hdnLevelNo" />
+
+        </div>
+    </div>
+</div>
+
+@section scripts{
+    <script type="text/javascript">
+        $(document).ready(function () {
+            $("#btnStart").click(function () {
+                //show warn and stop buttons
+                $('button[name*="btnWarn"]').css('display', 'inline-block');
+                $('button[name*="btnStop"]').css('display', 'inline-block');
+                $('select[id*="ddResult"]').css('display', 'none');
+
+                $("#hdnSpeedLevel").val(@Model.fitnessRatings.First().SpeedLevel);
+                $("#hdnShuttleNo").val(@Model.fitnessRatings.First().ShuttleNo);
+                $("#hdnLevelNo").val(@Model.fitnessRatings.First().LevelNo);
+
+                $("#btnStart").hide();
+
+                $('.progress').css('display', 'inline-block');
+                $("#lblLevelNo").text(@Model.fitnessRatings.First().LevelNo);
+                $("#lblShuttle").text(@Model.fitnessRatings.First().ShuttleNo);
+                $("#lblSpeed").text(@Model.fitnessRatings.First().SpeedLevel);
+
+                $("#timeLeft").text('@Model.fitnessRatings.First().CommulativeTime');
+                var time='@Model.fitnessRatings.First().CommulativeTime';
+                $('#timeLeft').countdown({
+                    until: time, format: 'MS',onExpiry: NextShuttle, layout: '{mnn} : {snn} s'
+                });
+                $("#dvDistance").text('@Model.fitnessRatings.First().AccumulatedShuttleDistance'+ ' m');
+                $("#dvTimer").timer('start');
+                ProgressBar();
+
+            });
+        });
+
+        function percentageToDegrees(percentage) {
+
+            return percentage / 100 * 360
+        }
+
+        function ProgressBar() {
+            $(".progress").each(function () {
+
+                var value = (($("#hdnLevelNo").val() - 1) * 100) / 15;
+                var left = $(this).find('.progress-left .progress-bar');
+                var right = $(this).find('.progress-right .progress-bar');
+
+                if (value > 0) {
+                    if (value <= 50) {
+                        right.css('transform', 'rotate(' + percentageToDegrees(value) + 'deg)')
+                    } else {
+                        right.css('transform', 'rotate(180deg)')
+                        left.css('transform', 'rotate(' + percentageToDegrees(value - 50) + 'deg)')
+                    }
+                }
+
+            })
+        }
+
+        function NextShuttle() {
+
+            var LevelNo = $("#hdnLevelNo").val();
+            var ShuttleNo = $("#hdnShuttleNo").val();
+
+            $.ajax({
+                cache: false,
+                url: '@Url.Action("GetNextShuttle", "Home")',
+                type: 'POST',
+                data: { levelNo: $("#hdnLevelNo").val(), shuttleNo: $("#hdnShuttleNo").val() },
+                success: function (result) {
+                    if (result != undefined) {
+                        $("#hdnSpeedLevel").val(result["speedLevel"]);
+                        $("#hdnShuttleNo").val(result["shuttleNo"]);
+                        $("#hdnLevelNo").val(result["levelNo"]);
+                        $("#timeLeft").text(result["commulativeTime"]);
+                        $("#dvDistance").text(result["accumulatedShuttleDistance"] + ' m');
+
+                        $("#lblLevelNo").text(result["levelNo"]);
+                        $("#lblShuttle").text(result["shuttleNo"]);
+                        $("#lblSpeed").text(result["speedLevel"]);
+
+                        var time = result["commulativeTime"];
+                        $('#timeLeft').countdown('destroy');
+                        $('#timeLeft').countdown({
+                            until: time, format: 'MS', onExpiry: NextShuttle, layout: '{mnn} : {snn} s'
+                        });
+
+                    }
+                    else {
+                        $("#dvTimer").timer('pause');
+                        $('#timeLeft').countdown('destroy');
+                        $('#dvStatistics').css('display', 'none');
+                        $("#divSummary").text("Test Complete");
+                        $("#hdnLevelNo").val('16');
+
+                        $('button[name*="btnStop"]').each(function () {
+                            StopAthlete($(this).val());
+                        });
+
+                    }
+                    ProgressBar();
+                },
+                error: function (result) {
+                    alert('Next shuttle not found.');
+                }
+            });
+        }
+
+         function WarnAthlete(Id) {
+
+            $("#btnWarn_" + Id).css('display', 'none');
+
+             $.ajax({
+                 cache: false,
+                 url: '@Url.Action("WarnAthlete", "Home")',
+                 type: 'POST',
+                 data: { id: Id },
+                 success: function (result) {
+                     $("#lblWarned_" + Id).css('display', 'inline-block');
+
+                 },
+                 error: function (result) {
+                     alert('Athlete not warned.');
+                 }
+             });
+        }
+
+         function StopAthlete(Id) {
+
+             $("#btnWarn_" + Id).css('display', 'none');
+             $("#lblWarned_" + Id).css('display', 'none');
+             $("#btnStop_" + Id).css('display', 'none');
+
+             $.ajax({
+                 cache: false,
+                 url: '@Url.Action("StopAthlete", "Home")',
+                 type: 'POST',
+                 data: { id: Id, speedLevel: $("#hdnSpeedLevel").val(), shuttleNo: $("#hdnShuttleNo").val() },
+                 success: function (result) {
+                     var res = JSLINQ(result)
+                         .Where(function (item) { return item.isStopped == false; })
+
+                     if (res.items.length == 0) {
+                         //stop timmer
+                         $("#dvTimer").timer('pause');
+                         $('#timeLeft').countdown('destroy');
+                         $('#dvStatistics').css('display', 'none');
+                         $("#divSummary").text("Test Complete");
+                         $("#hdnLevelNo").val('16');
+                         ProgressBar();
+                     }
+
+                     $("#ddResult_" + Id).css('display', 'inline-block');
+                     $("#ddResult_" + Id).val($("#hdnSpeedLevel").val() + ' - ' + $("#hdnShuttleNo").val());
+                 },
+                 error: function (result) {
+                     alert('Athlete not stopped.');
+                 }
+             });
+        }
+
+        function saveResult(value, Id) {
+             $.ajax({
+                 cache: false,
+                 url: '@Url.Action("ChangeAthleteResult", "Home")',
+                 type: 'POST',
+                 data: { id: Id, result:value },
+                 success: function (result) {
+                     alert('Athlete result saved.');
+                 }
+             });
+        }
+
+    </script>
+}
